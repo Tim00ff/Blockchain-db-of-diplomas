@@ -1,77 +1,46 @@
-from cryptography.hazmat.primitives import hashes, serialization
+import json
+from KeyManager import KeyManager
+from typing import Dict, Optional
+from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 import base64
 
 
 class DiplomaGenerator:
-    def __init__(self, data: dict):
-        self.data = data
-        self.private_key = rsa.generate_private_key(
-            public_exponent=65537,
-            key_size=2048,
-            backend=default_backend()
-        )
-        self.public_key = self.private_key.public_key()
+    def __init__(self, data: Optional[Dict] = None):
+        self.data = data or {}
+        self._initialize_template()
 
-        # Шаблон без электронной подписи
-        self.template = """\
-                        Республика Беларусь
-                        Министерство образования
-                        {institution}
-                        (Герб/Печать здесь)
-                        
-                        ДИПЛОМ
-                        
-                        Настоящим удостоверяется, что
-                        {full_name}
-                        успешно завершил(а) программу
-                        «{program}»
-                        и присваивается квалификация
-                        {qualification}
-                        по специальности
-                        «{specialty}»
-                        
-                        Дата выдачи: {issue_date}
-                        Регистрационный номер: {reg_number}
-                        
-                        Подписи:
-                        Ректор/Декан: {rector_name}
-                        Секретарь: {secretary_name}
-                        """
+    def _initialize_template(self):
+        """Базовый шаблон данных диплома"""
+        self.data.setdefault("institution", "[Название учебного заведения]")
+        self.data.setdefault("full_name", "Иванов Иван Иванович")
+        self.data.setdefault("program", "Общее среднее образование")
+        self.data.setdefault("qualification", "Бакалавр")
+        self.data.setdefault("specialty", "Компьютерные науки")
+        self.data.setdefault("issue_date", "01.06.2024")
+        self.data.setdefault("reg_number", "0000-XXXX")
+        self.data.setdefault("rector_name", "Петров П.П.")
+        self.data.setdefault("secretary_name", "Сидорова А.А.")
+        self.data.setdefault("signature", "")  # Пустая подпись по умолчанию
 
-    def _generate_base_content(self) -> str:
-        """Генерирует основное содержание диплома без подписи"""
-        return self.template.format(
-            institution=self.data.get('institution', '[Название учебного заведения]'),
-            full_name=self.data.get('full_name', 'Иванов Иван Иванович'),
-            program=self.data.get('program', 'Общее среднее образование'),
-            qualification=self.data.get('qualification', 'Бакалавр'),
-            specialty=self.data.get('specialty', 'Компьютерные науки'),
-            issue_date=self.data.get('issue_date', '01.06.2024'),
-            reg_number=self.data.get('reg_number', '0000-XXXX'),
-            rector_name=self.data.get('rector_name', 'Петров П.П.'),
-            secretary_name=self.data.get('secretary_name', 'Сидорова А.А.')
-        )
+    def create_signature(self, key_manager: KeyManager) -> None:
+        """Создает подпись используя KeyManager"""
+        content = self._generate_content()
+        self.data["signature"] = self._generate_signature(content, key_manager.private_key)
 
-    def generate(self) -> str:
-        """Генерирует полный диплом с электронной подписью"""
-        content = self._generate_base_content()
-        signature = self._create_signature(content)
-        return f"{content}\n\nЭЛЕКТРОННАЯ ПОДПИСЬ: {signature}\n\n" \
-               "----------------------------------------\n" \
-               "ВНИМАНИЕ: Это декоративный шаблон. Не имеет юридической силы."
+    def _generate_content(self) -> str:
+        """Генерирует содержимое для подписи (без самой подписи)"""
+        return json.dumps({k: v for k, v in self.data.items() if k != "signature"},
+                          ensure_ascii=False)
 
-    def _create_signature(self, content: str) -> str:
-        """Создает электронную подпись для контента"""
-        # Хэшируем содержание
+    def _generate_signature(self, content: str, private_key: rsa.RSAPrivateKey) -> str:
         hasher = hashes.Hash(hashes.SHA256(), backend=default_backend())
         hasher.update(content.encode('utf-8'))
         digest = hasher.finalize()
 
-        # Создаем подпись
-        signature = self.private_key.sign(
+        signature = private_key.sign(
             digest,
             padding.PSS(
                 mgf=padding.MGF1(hashes.SHA256()),
@@ -79,55 +48,99 @@ class DiplomaGenerator:
             ),
             hashes.SHA256()
         )
-
         return base64.b64encode(signature).decode('utf-8')
 
-    def get_public_key(self) -> bytes:
-        """Возвращает публичный ключ в PEM формате"""
-        return self.public_key.public_bytes(
-            encoding=Encoding.PEM,
-            format=PublicFormat.SubjectPublicKeyInfo
-        )
+    def to_dict(self) -> Dict:
+        """Возвращает данные в виде словаря"""
+        return self.data.copy()
 
-    def get_public_key_pem(self) -> str:
-        """Serialize public key to PEM string"""
-        return self.public_key.public_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PublicFormat.SubjectPublicKeyInfo
-        ).decode('utf-8')
+    def to_string(self) -> str:
+        """Формирует документ в человекочитаемом формате"""
+        content = f"""\
+                    Республика Беларусь
+                    Министерство образования
+                
+                    Учебное заведение: {self.data['institution']}
+                    ФИО выпускника: {self.data['full_name']}
+                    Программа обучения: «{self.data['program']}»
+                    Присвоенная квалификация: {self.data['qualification']}
+                    Специальность: «{self.data['specialty']}»
+                
+                    Дата выдачи: {self.data['issue_date']}
+                    Регистрационный номер: {self.data['reg_number']}
+                
+                    Подписи:
+                    Ректор/Декан: {self.data['rector_name']}
+                    Секретарь: {self.data['secretary_name']}
+                
+                    Электронная подпись: {self.data['signature']}
+                
+                    ----------------------------------------
+                    ВНИМАНИЕ: Это декоративный шаблон. Не имеет юридической силы."""
+        return content
 
-    def get_private_key_pem(self) -> str:
-        """Serialize private key to PEM string (use with caution!)"""
-        return self.private_key.private_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PrivateFormat.PKCS8,
-            encryption_algorithm=serialization.NoEncryption()
-        ).decode('utf-8')
+    def save_to_file(self, filename: str) -> None:
+        """Сохраняет диплом в файл"""
+        with open(filename, 'w', encoding='utf-8') as f:
+            f.write(self.to_string())
 
-    @staticmethod
-    def verify_diploma(diploma_text: str, public_key_pem: bytes) -> bool:
-        """Проверяет валидность электронной подписи"""
+    @classmethod
+    def from_string(cls, data_str: str) -> 'DiplomaGenerator':
+        """Парсит документ из текстового формата"""
+        data = {
+            "institution": "",
+            "full_name": "",
+            "program": "",
+            "qualification": "",
+            "specialty": "",
+            "issue_date": "",
+            "reg_number": "",
+            "rector_name": "",
+            "secretary_name": "",
+            "signature": ""
+        }
+
+        lines = data_str.split('\n')
+        for line in lines:
+            if 'Учебное заведение:' in line:
+                data['institution'] = line.split(': ')[1].strip()
+            elif 'ФИО выпускника:' in line:
+                data['full_name'] = line.split(': ')[1].strip()
+            elif 'Программа обучения:' in line:
+                data['program'] = line.split('«')[1].split('»')[0].strip()
+            elif 'Присвоенная квалификация:' in line:
+                data['qualification'] = line.split(': ')[1].strip()
+            elif 'Специальность:' in line:
+                data['specialty'] = line.split('«')[1].split('»')[0].strip()
+            elif 'Дата выдачи:' in line:
+                data['issue_date'] = line.split(': ')[1].strip()
+            elif 'Регистрационный номер:' in line:
+                data['reg_number'] = line.split(': ')[1].strip()
+            elif 'Ректор/Декан:' in line:
+                data['rector_name'] = line.split(': ')[1].strip()
+            elif 'Секретарь:' in line:
+                data['secretary_name'] = line.split(': ')[1].strip()
+            elif 'Электронная подпись:' in line:
+                data['signature'] = line.split(': ')[1].strip()
+
+        return cls(data)
+
+    @classmethod
+    def from_file(cls, filename: str) -> 'DiplomaGenerator':
+        """Создает диплом из файла"""
+        with open(filename, 'r', encoding='utf-8') as f:
+            return cls.from_string(f.read())
+
+    def verify(self, public_key: rsa.RSAPublicKey) -> bool:
+        """Проверяет подпись диплома"""
         try:
-            # Извлекаем основные данные и подпись
-            parts = diploma_text.split("\n\nЭЛЕКТРОННАЯ ПОДПИСЬ: ")
-            if len(parts) != 2:
-                return False
+            content = self._generate_content()
+            signature = base64.b64decode(self.data["signature"])
 
-            content, signature_part = parts
-            signature = base64.b64decode(signature_part.split("\n")[0])
-
-            # Хэшируем содержание
             hasher = hashes.Hash(hashes.SHA256(), backend=default_backend())
             hasher.update(content.encode('utf-8'))
             digest = hasher.finalize()
 
-            # Загружаем публичный ключ
-            public_key = serialization.load_pem_public_key(
-                public_key_pem,
-                backend=default_backend()
-            )
-
-            # Проверяем подпись
             public_key.verify(
                 signature,
                 digest,
@@ -138,37 +151,12 @@ class DiplomaGenerator:
                 hashes.SHA256()
             )
             return True
-
         except Exception as e:
             print(f"Ошибка верификации: {str(e)}")
             return False
-#
-#
-# # Пример использования
-# if __name__ == "__main__":
-#     data = {
-#         'institution': 'Государственный университет информатики',
-#         'full_name': 'Смирнова Анна Дмитриевна',
-#         'program': 'Высшее образование по специальности "Программная инженерия"',
-#         'qualification': 'Магистр',
-#         'specialty': 'Информационные системы и технологии',
-#         'issue_date': '15.07.2024',
-#         'reg_number': '2024-BY-5678',
-#         'rector_name': 'Иванов И.И.',
-#         'secretary_name': 'Петрова М.С.'
-#     }
-#
-#     # Генерация диплома
-#     generator = DiplomaGenerator(data)
-#     diploma = generator.generate()
-#     print(diploma)
-#
-#     # Проверка подписи
-#     public_key_pem = generator.get_public_key()
-#     is_valid = DiplomaGenerator.verify_diploma(diploma, public_key_pem)
-#     print(f"Подпись {'валидна' if is_valid else 'недействительна'}")
-#
-#     # Проверка с измененным содержимым (должна быть невалидна)
-#     tampered_diploma = diploma.replace("Магистр", "Доктор наук")
-#     is_valid_tampered = DiplomaGenerator.verify_diploma(tampered_diploma, public_key_pem)
-#     print(f"Подпись измененного документа {'валидна' if is_valid_tampered else 'недействительна'}")
+
+    @classmethod
+    def verify_file(cls, filename: str, public_key: rsa.RSAPublicKey) -> bool:
+        """Проверяет диплом из файла"""
+        diploma = cls.from_file(filename)
+        return diploma.verify(public_key)
