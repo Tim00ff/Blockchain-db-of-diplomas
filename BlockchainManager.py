@@ -1,14 +1,13 @@
-import os
 import json
 from typing import Optional
 from Blockchain import Blockchain
 from DiplomaGenerator import DiplomaGenerator
 from KeyManager import KeyManager
-
+from Block import Block
 
 class BlockchainManager:
-    def __init__(self, blockchain: Blockchain):
-        self.blockchain = blockchain
+    def __init__(self, blockchain: Blockchain = None):
+        self.blockchain = blockchain or Blockchain()
         self.current_diploma: Optional[DiplomaGenerator] = None
 
     def print_menu(self):
@@ -131,3 +130,16 @@ class BlockchainManager:
 
     def print_chain_info(self):
         self.blockchain.print_chain_info()
+
+    def add_block_from_miner(self, block_data, miner_id):
+        # Проверка Proof-of-Work
+        new_block = Block(
+            block_id=len(self.blockchain),
+            diploma_data=block_data,
+            public_key=block_data["public_key"],
+            prev_hash=self.blockchain.chain[-1].hash if self.blockchain.chain else "0" * 64
+        )
+        if new_block.verify_diploma():
+            self.blockchain.add_block(new_block)
+            return True
+        return False

@@ -1,4 +1,4 @@
-from DiplomaManager import DiplomaManager, main as UI
+from DiplomaManager import main as UI
 
 from KeyManager import KeyManager
 from DiplomaGenerator import DiplomaGenerator
