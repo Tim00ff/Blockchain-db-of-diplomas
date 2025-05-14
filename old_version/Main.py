@@ -12,12 +12,12 @@ def main():
 
 def genesis():
     # Инициализация KeyManager Genesis
-    key_manager = KeyManager.from_file("Genesis/key.txt")
+    key_manager = KeyManager.from_file("../Genesis/key.txt")
     # Загрузка данных диплома Genesis
-    diploma = DiplomaGenerator.from_file("Genesis/g/2000-BY-9473.txt")
+    diploma = DiplomaGenerator.from_file("../Genesis/g/2000-BY-9473.txt")
     # Инициализация блокчейна
     blockchain = Blockchain(
-        path="Blockchain",
+        path="../Blockchain",
         diploma_data=diploma.to_dict(),
         public_key=key_manager.public_key
     )

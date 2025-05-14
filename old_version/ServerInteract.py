@@ -3,18 +3,18 @@ import json
 import bcrypt
 import os
 from threading import Lock
-from Blockchain import Blockchain
-from Block import Block
-from KeyManager import KeyManager
-from DiplomaGenerator import DiplomaGenerator
+from old_version.Blockchain import Blockchain
+from old_version.Block import Block
+from old_version.KeyManager import KeyManager
+from old_version.DiplomaGenerator import DiplomaGenerator
 import time
 
 def load_users():
     """Load users from JSON file with role support"""
     users = []
     try:
-        if os.path.exists('users.json'):
-            with open('users.json', 'r') as f:
+        if os.path.exists('../users.json'):
+            with open('../users.json', 'r') as f:
                 users = json.load(f)
     except Exception as e:
         print(f"Error loading users: {str(e)}")
@@ -173,22 +173,22 @@ def add_block_to_queue(command, username, block_queue, lock):
         return f"BLOCK_ERROR: {str(e)}\r\n\r\n"
 
 
-def handle_miner_commands(lines, username, blockchain, block_queue, rewards, lock):
+def handle_miner_commands(lines, username, blockchain, block_queue, rewards, lock, miner_counter):
     """Process miner commands"""
     if len(lines) < 2:
         return "INCOMPLETE_COMMAND\r\n\r\n"
 
     command = lines[1]
     if command == "GET_TASK":
-        return assign_mining_task(username, block_queue, blockchain, lock)
+        return assign_mining_task(username, block_queue, blockchain, lock, miner_counter)
     elif command.startswith("SUBMIT_SOLUTION"):
         return process_solution(command, username, blockchain, block_queue, rewards, lock)
 
     return "UNKNOWN_MINER_COMMAND\r\n\r\n"
 
 
-def assign_mining_task(username, block_queue, blockchain, lock):
-    """Assign mining task to miner"""
+def assign_mining_task(username, block_queue, blockchain, lock, miner_number):
+    """Назначение задачи майнинга с уникальным nonce"""
     with lock:
         if not block_queue:
             return "NO_PENDING_TASKS\r\n\r\n"
@@ -197,19 +197,30 @@ def assign_mining_task(username, block_queue, blockchain, lock):
         if task['status'] != 'pending':
             return "NO_PENDING_TASKS\r\n\r\n"
 
+        start_nonce = miner_number * 100000
         task['status'] = 'mining'
         task['miner'] = username
-        return f"MINING_TASK {json.dumps(task['data'])}\r\n\r\n"
+        task['start_nonce'] = start_nonce
+
+        return (
+            f"MINING_TASK {json.dumps(task['data'])} "
+            f"START_NONCE {start_nonce}\r\n\r\n"
+        )
 
 
 def process_solution(command, username, blockchain, block_queue, rewards, lock):
     """Process miner's solution"""
     try:
-        _, block_hash = command.split()
+        _, block_hash, nonce = command.split()
+        nonce = int(nonce)
 
         with lock:
             if not block_queue:
                 return "INVALID_TASK\r\n\r\n"
+            task = block_queue[0]
+            expected_start = task['start_nonce']
+            if not (expected_start <= nonce < expected_start + 100000):
+                return "INVALID_NONCE_RANGE\r\n\r\n"
 
             task = block_queue[0]
             if task['status'] != 'mining' or task['miner'] != username:

@@ -1,8 +1,8 @@
 import CreateUser  # Static import of CreateUser module
-from Server import Server      # Static import of Server module
+from Server import start_server      # Static import of Server module
 
 def main():
-    while (True):
+    while True:
         print("Choose an option:")
         print("1. Create a new user")
         print("2. Start the server")
@@ -16,8 +16,7 @@ def main():
 
         elif choice == '2':
             print("Starting the server...")
-            server = Server()
-            server.start()
+            start_server()
 
         elif choice == '3':
             print("Closing application...")

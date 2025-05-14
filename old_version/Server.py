@@ -2,7 +2,7 @@
 import socket
 import threading
 from ServerInteract import process_client_request
-from BlockchainManager import BlockchainManager
+from old_version.BlockchainManager import BlockchainManager
 
 
 class Server:
@@ -11,6 +11,8 @@ class Server:
         self.block_queue = []
         self.rewards = {}
         self.lock = threading.Lock()
+        self.miner_counter = 0
+        self.miner_lock = threading.Lock()
 
     def handle_client(self, client_socket):
         buffer = ""
@@ -29,7 +31,8 @@ class Server:
                         self.blockchain_manager.blockchain,
                         self.block_queue,
                         self.rewards,
-                        self.lock
+                        self.lock,
+                        self.miner_counter
                     )
                     client_socket.sendall(response.encode('utf-8'))
 
