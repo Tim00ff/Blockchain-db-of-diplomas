@@ -14,6 +14,7 @@ class Blockchain:
         self.chain: List[Block] = []
         self.path = path
         self.current_id = 0
+        self.difficulty = 4
 
         os.makedirs(self.path, exist_ok=True)
 

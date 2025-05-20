@@ -5,7 +5,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 import os
-from .DiplomaGenerator import DiplomaGenerator
+from DiplomaGenerator import DiplomaGenerator
 
 
 class Block:
@@ -53,16 +53,6 @@ class Block:
                 str(self.difficulty))
         return sha256(data_string.encode('utf-8')).hexdigest()
 
-    def hash_info(self) -> str:
-        """Data used as the base for mining (excludes nonce and difficulty)"""
-        return (
-                str(self.prev_hash) +
-                str(self.timestamp) +
-                json.dumps(self.diploma_data, sort_keys=True) +
-                self.public_key_pem +
-                self.signature
-        )
-
     def mine(self) -> None:
         while self.hash[:self.difficulty] != '0' * self.difficulty:
             self.nonce += 1
@@ -84,42 +74,6 @@ class Block:
         }
         with open(filename, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
-    def to_dict(self):
-        data = {
-            "id": self.id,
-            "prev_hash": self.prev_hash,
-            "timestamp": self.timestamp,
-            "diploma_data": self.diploma_data,
-            "public_key": self.public_key_pem,
-            "signature": self.signature,
-            "nonce": self.nonce,
-            "difficulty": self.difficulty,
-            "hash": self.hash
-        }
-        return data
-
-    @classmethod
-    def from_dict(cls, data: dict) -> 'Block':
-        """Создает блок из словаря данных"""
-        public_key = serialization.load_pem_public_key(
-            data['public_key'].encode('utf-8'),
-            backend=default_backend()
-        )
-
-        block = cls(
-            block_id=data['id'],
-            diploma_data=data['diploma_data'],
-            public_key=public_key,
-            prev_hash=data['prev_hash']
-        )
-
-        block.timestamp = data['timestamp']
-        block.nonce = data['nonce']
-        block.difficulty = data['difficulty']
-        block.hash = data['hash'] or block.calculate_hash()
-
-        return block
-
 
     @classmethod
     def from_file(cls, filename: str) -> 'Block':
@@ -146,4 +100,4 @@ class Block:
         return block
 
     def __repr__(self) -> str:
-        return f"Block(id={self.id}, hash={self.hash}...)"
+        return f"Block(id={self.id}, hash={self.hash[:10]}...)"

@@ -56,7 +56,6 @@ def create_user():
     user_data = {
         "username": username,
         "hashed_password": hashed_password.decode('utf-8'),
-        "plain_password": password,
         "role": role,
         "status": "active"
     }

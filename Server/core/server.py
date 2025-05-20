@@ -2,7 +2,7 @@ import socket
 import threading
 from .request_router import RequestRouter
 from ..models import Blockchain
-
+from ..handlers import RewardHandler
 
 class BlockchainServer:
     def __init__(self, host='127.0.0.1', port=65432):
@@ -10,7 +10,7 @@ class BlockchainServer:
         self.port = port
         self.socket = None
         self.lock = threading.Lock()
-        self.rewards = {}
+        self.rewards = RewardHandler()
         self.blockchain = Blockchain()
         self.task_queue = []
         self.router = RequestRouter(
@@ -34,8 +34,11 @@ class BlockchainServer:
                     request, sep, buffer = buffer.partition("\r\n\r\n")
                     response = self.router.route_request(request)
                     client_socket.sendall(response.encode('utf-8'))
+        except ConnectionResetError as e:
+            print(f"Client crashed, error({e})")
         finally:
             client_socket.close()
+
 
     def run(self):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

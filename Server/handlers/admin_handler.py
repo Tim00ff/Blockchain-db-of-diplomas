@@ -25,43 +25,40 @@ def handle_add_block(command: str, queue: List[MiningTask], lock: Lock, blockcha
             public_key_pem.encode(),
             backend=default_backend()
         )
+        block_id = 0
+        prev_hash = "0" * 64
+        if len(queue) == 0:
+            # Если очередь пуста - берем актуальные данные из блокчейна
+            block_id = blockchain.current_id
+            prev_hash = (
+                blockchain.chain[-1].hash
+                if blockchain.chain
+                else "0" * 64
+            )
 
         # Создание временного блока для проверки
-        temp_block = Block(
-            block_id=0,
+        new_block = Block(
+            block_id=block_id,  # Temporary ID
             diploma_data={**diploma_data, "signature": signature},
             public_key=public_key,
-            prev_hash="0" * 64
+            prev_hash=prev_hash  # Dummy value for verification
         )
-
-        if not temp_block.verify_diploma():
+        if not new_block.verify_diploma():
             return response_formatter.format_error("Invalid diploma signature")
 
-        # Создание реального блока
-        block_id = len(blockchain.chain)
-        prev_hash = blockchain.last_block.hash if blockchain.chain else "0" * 64
-
-        new_block = Block(
-            block_id=block_id,
-            diploma_data={**diploma_data, "signature": signature},
-            public_key=public_key,
-            prev_hash=prev_hash
-        )
-
-        # Установка временных значений
-        new_block.nonce = 0
-        new_block.hash = new_block.calculate_hash()
         new_block.difficulty = blockchain.difficulty
+        new_block.hash = new_block.calculate_hash()
 
         # Добавление в очередь майнинга
         with lock:
-            queue.append(MiningTask(new_block))
+            queue.append(MiningTask(new_block, blockchain, "pending"))
             return response_formatter.format_response(
-                "Block queued for mining",
+                "202 Block queued for mining",
                 data={
-                    "block_id": block_id,
+                    "block_id": block_id if len(queue) == 1 else 0,
                     "initial_hash": new_block.hash,
-                    "difficulty": new_block.difficulty
+                    "difficulty": new_block.difficulty,
+                    "queue_status": "pending" if len(queue) == 1 else "pending"
                 }
             )
 

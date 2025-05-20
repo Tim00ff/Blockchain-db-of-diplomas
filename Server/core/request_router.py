@@ -1,21 +1,21 @@
 import threading
-from typing import List, Tuple, Optional, Dict
+from typing import List, Tuple, Optional
 from ..handlers import (
     auth_handler,
     admin_handler,
     miner_handler,
-    view_handler
+    view_handler,
+    RewardHandler
 )
 from ..utils import response_formatter
 from ..models import User, MiningTask, Blockchain
-
 
 class RequestRouter:
     def __init__(
             self,
             blockchain: Blockchain,
             task_queue: List[MiningTask],
-            rewards: Dict[str, int],
+            rewards: RewardHandler,
             lock: threading.Lock
     ):
         self.blockchain = blockchain
@@ -77,7 +77,7 @@ class RequestRouter:
 
             try:
                 if user.role == "admin":
-                    response = self._handle_admin_command(command)
+                    response = self._handle_admin_command(command, user.username)
                 elif user.role == "miner":
                     response = self._handle_miner_command(command, user.username)
                 else:
@@ -90,7 +90,7 @@ class RequestRouter:
 
         return '\r\n'.join(responses)
 
-    def _handle_admin_command(self, command: str) -> str:
+    def _handle_admin_command(self, command: str, username: str) -> str:
         """Обработка команд администратора"""
         if command.startswith("ADD_BLOCK"):
             return admin_handler.handle_add_block(
@@ -111,15 +111,10 @@ class RequestRouter:
     def _handle_miner_command(self, command: str, username: str) -> str:
         """Обработка команд майнера"""
         if command == "MINE":
-            with self.miner_lock:
-                self.miner_counter += 1
-                miner_number = self.miner_counter
-
             return miner_handler.handle_mine_command(
                 username,
                 self.task_queue,
-                self.lock,
-                miner_number
+                self.lock
             )
 
         if command.startswith("SUBMIT_SOLUTION"):
@@ -140,7 +135,10 @@ class RequestRouter:
             commands, user = self._parse_request(raw_data)
 
             if not commands:
-                return response_formatter.format_error("Empty request")
+                if not user:
+                    return response_formatter.format_error("Empty request")
+                if user:
+                    return response_formatter.format_success("PASS", 201)
 
             # Обработка неавторизованных команд
             if user is None:

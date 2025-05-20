@@ -1,5 +1,5 @@
-import CreateUser  # Static import of CreateUser module
-from Server import start_server      # Static import of Server module
+import CreateUser
+from Server import start_server
 
 def main():
     while True:
@@ -12,7 +12,7 @@ def main():
 
         if choice == '1':
             print("Creating a new user...")
-            CreateUser.create_user()  # Call the create_user function from CreateUser.py
+            CreateUser.create_user()
 
         elif choice == '2':
             print("Starting the server...")
