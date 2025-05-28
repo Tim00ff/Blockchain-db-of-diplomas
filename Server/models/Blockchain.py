@@ -1,9 +1,9 @@
 import os
 from typing import Optional, List, Dict
 from cryptography.hazmat.primitives.asymmetric import rsa
+from .DiplomaGenerator import DiplomaGenerator
+from .KeyManager import KeyManager
 from .Block import Block
-
-
 class Blockchain:
     def __init__(
             self,
@@ -28,10 +28,13 @@ class Blockchain:
             if diploma_data and public_key:
                 self._create_genesis_block(diploma_data, public_key)
             else:
-                raise ValueError(
-                    "Cannot initialize blockchain: "
-                    "No existing blocks and missing initialization parameters"
-                )
+                #try:
+                self._create_genesis_block(DiplomaGenerator.from_file('Genesis/g/2000-BY-9473.txt').to_dict(), KeyManager.from_file('Genesis/key.txt').public_key)
+                #except:
+                #    raise ValueError(
+                #        "Cannot initialize blockchain: "
+                #        "No existing blocks and missing initialization parameters"
+                #    )
 
     def _load_chain(self) -> bool:
         """Загружает цепочку из файлов. Возвращает True если блоки найдены, False если папка пустая"""
