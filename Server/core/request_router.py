@@ -136,7 +136,7 @@ class RequestRouter:
 
             if not commands:
                 if not user:
-                    return response_formatter.format_error("Empty request")
+                    return response_formatter.format_error("Invalid username or password")
                 if user:
                     return response_formatter.format_success("PASS", 201)
 
