@@ -47,15 +47,18 @@ def handle_solution(
         task = task_queue[0]
         block = task.block
         block.nonce = nonce
-
+        start, stop = task.get_miner_range(miner_id)
 
         # Проверка решения
         calculated_hash = block.calculate_hash()
+        if not nonce in range(start, stop):
+            return response_formatter.format_error("Nonce is outside of range")
         if calculated_hash != submitted_hash:
             return response_formatter.format_error("Invalid hash")
 
         if not calculated_hash.startswith('0' * block.difficulty):
             return response_formatter.format_error("Difficulty not satisfied")
+
 
         # Добавляем в блокчейн
         blockchain.add_block(block)
